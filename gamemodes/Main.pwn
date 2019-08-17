@@ -22,7 +22,9 @@
 #define ORDER_NORMAL 0
 #define ORDER_DESC 1
 
-#define MAX_CARD_VALUES 15
+
+
+
 
 #include "Player.pwn"
 #include "Table.pwn"
@@ -41,19 +43,51 @@ public OnGameModeInit()
 	ShowPlayerMarkers(1);
 	ShowNameTags(1);
 	Table::OnGameModeInit();
-	for(new i = 0; i < 13200000; i++){
-	    test_timer = SetTimer("Test", 1, 0);
+	//for(new i = 0; i < 13200000; i++){
+	for(new i = 0; i < 20; i++){
+	    test_timer = SetTimer("Test2", 1, 1);
 	}
 	return 1;
 }
 
 main(){}
 
+forward Test2();
+public Test2(){
+	new cards[20],cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[20];
+	// 10张牌
+	cardSize = 10;
+	
+	cards[0] = 5;
+	cards[1] = 6;
+	cards[2] = 7;
+	cards[3] = 14;
+	cards[4] = 15;
+	cards[5] = 18;
+	cards[6] = 22;
+	cards[7] = 26;
+	cards[8] = 30;
+	cards[9] = 34;
+	// 上家已出 444 5
+	requiredSize = 4;
+	targetType = TYPE_TRIPLE;
+	targetDetail = 1001;
+	targetLevel = 1;
+	seed = 0;
+    if(Logic::getSolution(cards, cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray)){
+        new msg[128];
+        for(new i = 0; i < requiredSize; i++){
+            format(msg, sizeof msg, "%s %d, ", msg, outputArray[i]);
+        }
+        printf("%s", msg);
+    }
+}
+
 forward Test();
 public Test(){
  	new values[20];
 	new string[128];
-	new card_size = 8;
+	new card_size = 6;
 	new value_counts[55];
 	for(new i = 0; i < card_size; i++){
 	    new rand = 1 + random(54);

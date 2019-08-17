@@ -162,7 +162,7 @@ forward Player::saveData(playerid);
 forward Player::newbieGift(playerid);
 forward Player::loadTxd(playerid);
 forward Player::showBasicTableTxd(playerid, prev_id, next_id, basic_gold, times);
-forward Player::updateCardTxd(playerid, const mycards[], const card_selected[], my_cards, prev_cards, next_cards);
+forward Player::Player::updateCardTxd(playerid, const cards[], const card_s[], const p_cards[], a, b, c, d);
 forward Player::updateHiddenCardTxd(playerid, const hidden_cards[]);
 forward Player::showButton(playerid, time, button_no[], button_yes[]);
 forward Player::showTime(playerid, pos, time);
@@ -309,9 +309,11 @@ public Player::showBasicTableTxd(playerid, prev_id, next_id, basic_gold, times){
 	Player::textdrawHide(playerid, pTextDraw[118]);
 }
 
-public Player::updateCardTxd(playerid, const mycards[], const card_selected[], my_cards, prev_cards, next_cards){
+// card_s 为 card_selected
+public Player::updateCardTxd(playerid, const cards[], const card_s[], const p_cards[], a, b, c, d){
 	// 先更新我的牌
- 	new card_size = my_cards;
+	
+ 	new played_card_size = a, card_size = b, prev_cards = c, next_cards = d;
 	new text_draw_start_id = 10 - card_size/2 + 1;
 	Player[playerid][pCardTxdStartID] = text_draw_start_id;
 	Player[playerid][pCardTxdEndID] = text_draw_start_id + card_size;
@@ -321,7 +323,7 @@ public Player::updateCardTxd(playerid, const mycards[], const card_selected[], m
 	        PlayerTextDrawSetString(playerid, pTextDraw[i+80], "none");
 	    } else {
 	        new font_name[32];
-	        Table::getCardFontNameByValue(mycards[i-text_draw_start_id], font_name);
+	        Table::getCardFontNameByValue(cards[i-text_draw_start_id], font_name);
 	        if(card_selected[i-text_draw_start_id] == 1){
 	            PlayerTextDrawSetString(playerid, pTextDraw[i+80], font_name);
 	            PlayerTextDrawSetString(playerid, pTextDraw[i], "none");

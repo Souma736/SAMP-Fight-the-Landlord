@@ -56,17 +56,11 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
 	
 	
 	new element_times[5], element_values[5][MAX_PLAYER_CARDS];
-	new quads = 0, triples = 0, pairs = 0, solos = 0;
-	new quad_values[5]; // 最多5个4张
-	new triple_values[7]; // 最多 7个三张
-	new pair_values[10]; // 最多10个对子
-	new solo_values[20]; // 最多20个单张
-	Logic::getElements(poker_values, poker_times, lapsize, quads, triples, pairs, solos, quad_values, triple_values, pair_values, solo_values);
-	
+	Logic::getElements(poker_values, poker_times, lapsize, element_times, element_values);
 	
 	
 	// 单张
-	if(lapsize == 1 && solos == 1){
+	if(lapsize == 1 && element_times[1] == 1){
 	    type = TYPE_SOLO;
 	    type_detail = 0;
 	    level = values[0];
@@ -80,30 +74,30 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
 	}
 	
 	//3连对及以上
-	if(quads == 0 && triples == 0 && pairs >= 3 && solos == 0){
+	if(element_times[4] == 0 && element_times[3] == 0 && element_times[2] >= 3 && element_times[1] == 0){
 	    new isSuccess = 1;
-		for(new i = 0; i < pairs; i++){
+		for(new i = 0; i < element_times[2]; i++){
 			//  如果没连起来 或 比 A 大
-		    if((i < pairs-1 && pair_values[i] != pair_values[i+1]+1) || (pair_values[i] > 11)){ // 由于 values是倒序，所以-1
+		    if((i < element_times[2]-1 && element_values[2][i] != element_values[2][i+1]+1) || (element_values[2][i] > 11)){ // 由于 values是倒序，所以-1
 		        isSuccess = 0;
 		        break;
 		    }
 		}
 		if(isSuccess == 1){
 		    type = TYPE_PAIR;
-		    type_detail = pairs;
-		    level = pair_values[0]; //记录最大牌为 level
+		    type_detail = element_times[2];
+		    level = element_values[2][0]; //记录最大牌为 level
 		}
 	}
 	// 3张，3带1，3带2， 或 飞机
-	if(quads == 0 && triples > 0){ //不考虑炸弹拆开
-	    if((pairs == 0 && solos == 0) || (pairs == triples && solos == 0) || (solos == triples && pairs == 0)){
+	if(element_times[4] == 0 && element_times[3] > 0){ //不考虑炸弹拆开
+	    if((element_times[2] == 0 && element_times[1] == 0) || (element_times[2] == element_times[3] && element_times[1] == 0) || (element_times[1] == element_times[3] && element_times[2] == 0)){
 	        new isSuccess = 1;
-	        if(triples > 1){
+	        if(element_times[3] > 1){
 	            // 如果是飞机
-	            for(new i = 0; i < triples; i++){
+	            for(new i = 0; i < element_times[3]; i++){
 	                //如果没连起来 或 比 A 大
-	                if((i < triples-1 && triple_values[i] != triple_values[i+1]+1) || (triple_values[i] > 11)){
+	                if((i < element_times[3]-1 && element_values[3][i] != element_values[3][i+1]+1) || (element_values[3][i] > 11)){
 	                    isSuccess = 0;
 	                    break;
 	                }
@@ -111,36 +105,36 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
 	        }
 	        if(isSuccess == 1){
 	            type = TYPE_TRIPLE;
-	        	type_detail = triples * 1000 + solos + pairs * 10; // 为了区分是 带单张 还是 对子
-	        	level = triple_values[0];
+	        	type_detail = element_times[3] * 1000 + element_times[1] + element_times[2] * 10; // 为了区分是 带单张 还是 对子
+	        	level = element_values[3][0];
 	        }
 	    }
 	}
 	// 顺子
-	if(quads == 0 && triples == 0 && pairs == 0 && solos >= 5){
+	if(element_times[4] == 0 && element_times[3] == 0 && element_times[2] == 0 && element_times[1] >= 5){
         new isSuccess = 1;
-		for(new i = 0; i < solos; i++){
+		for(new i = 0; i < element_times[1]; i++){
 		    //如果没连起来 或 比 A 大
-		    if((i < solos-1 && solo_values[i] != solo_values[i+1]+1) || (solo_values[i] > 11)){
+		    if((i < element_times[1]-1 && element_values[1][i] != element_values[1][i+1]+1) || (element_values[1][i] > 11)){
 		        isSuccess = 0;
 		        break;
 		    }
 		}
 		if(isSuccess == 1){
             type = TYPE_STRAIGHT;
-        	type_detail = solos;
-        	level = solo_values[0];
+        	type_detail = element_times[1];
+        	level = element_values[1][0];
         }
 	}
 	// 炸弹 或 四带2张  或 四带 2对 或 四带一对
-	if(quads > 0 && triples == 0){
-	    if((pairs == 0 && solos == 0) || (pairs == quads*2 && solos == 0) || (solos == quads*2 && pairs == 0) || (pairs == quads && solos == 0)){
+	if(element_times[4] > 0 && element_times[3] == 0){
+	    if((element_times[2] == 0 && element_times[1] == 0) || (element_times[2] == element_times[4]*2 && element_times[1] == 0) || (element_times[1] == element_times[4]*2 && element_times[2] == 0) || (element_times[2] == element_times[4] && element_times[1] == 0)){
 	        new isSuccess = 1;
-	        if(quads > 1){
+	        if(element_times[4] > 1){
 	            // 如果不止 一个 四
-	            for(new i = 0; i < quads; i++){
+	            for(new i = 0; i < element_times[4]; i++){
 	                //如果没连起来 或 比 A 大
-	                if((i < quads-1 && quad_values[i] != quad_values[i+1]+1) || (quad_values[i] > 11)){
+	                if((i < element_times[4]-1 && element_values[4][i] != element_values[4][i+1]+1) || (element_values[4][i] > 11)){
 	                    isSuccess = 0;
 	                    break;
 	                }
@@ -148,20 +142,20 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
 	        }
 	        if(isSuccess == 1){
 	            type = TYPE_QUAD;
-	        	type_detail = quads * 1000 + solos*5 + pairs * 10; // detail为1000为炸弹
-	        	level = quad_values[0];
+	        	type_detail = element_times[4] * 1000 + element_times[1]*5 + element_times[2] * 10; // detail为1000为炸弹
+	        	level = element_values[4][0];
 	        }
 	    }
 	}
 	// 王炸
-	if(quads == 0 && triples == 0 && pairs == 0 && solos == 2 && solo_values[0] == 14 && solo_values[1] == 13){
+	if(element_times[4] == 0 && element_times[3] == 0 && element_times[2] == 0 && element_times[1] == 2 && element_values[1][0] == 14 && element_values[1][1] == 13){
 	    type = TYPE_BOOM;
     	type_detail = 0;
     	level = 0;
 	}
 //	if(type == TYPE_WRONG)printf("错误");
 	//TODO
-	//if(quads != 0 && triples > 0){//考虑炸弹拆开成飞机  如 33334445
+	//if(element_times[4] != 0 && element_times[3] > 0){//考虑炸弹拆开成飞机  如 33334445
 }
 
 Logic::orderByLaps(const values[], size, poker_values[], poker_times[], &lapsize){
@@ -186,22 +180,53 @@ Logic::orderByLaps(const values[], size, poker_values[], poker_times[], &lapsize
 }
 
 
-Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[]){
-
-	new quads = 0, triples = 0, pairs = 0, solos = 0;
-	new quad_values[5]; // 最多5个4张
-	new triple_values[7]; // 最多 7个三张
-	new pair_values[10]; // 最多10个对子
-	new solo_values[20]; // 最多20个单张
-	for(new i = 0; i < lapsize; i++){
-		if(poker_times[i] == 3){
-		    triple_values[triples++] = poker_values[i];
-		} else if(poker_times[i] == 4){
-		    quad_values[quads++] = poker_values[i];
-		} else if(poker_times[i] == 2){
-		    pair_values[pairs++] = poker_values[i];
-		} else if(poker_times[i] == 1){
-		    solo_values[solos++] = poker_values[i];
+Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[], &outputSize){
+	new temp_array[MAX_PLAYER_CARDS];
+	for(new i = 0; i < cardSize; i++){
+	    temp_array[i] = i;
+	}
+	for(new i = 0; i < cardSize; i++){
+	    if(i == cardSize - 1){
+			// 最后一次抽牌
+			outputArray[i] = temp_array[0];
+		} else {
+ 			//正常抽牌
+			new random_id = random(cardSize-i);
+			outputArray[i] = temp_array[random_id];
+			if(random_id != cardSize-i-1)
+				temp_array[random_id] = temp_array[cardSize-i-1];
 		}
 	}
+	new temp_cards[MAX_PLAYER_CARDS];
+	for(new i = 0; i < requiredSize; i++){
+	    temp_cards[i] = cards[outputArray[i]];
+	}
+	new type, detail, level;
+	Logic::determineCardInfo(temp_cards, requiredSize, type, detail, level);
+	outputSize = requiredSize;
+	if(Logic::isGreater(type, detail, level, targetType, targetDetail, targetLevel))return true;
+	//王炸
+	if(cardSize >= 2){
+	    outputSize = 2;
+	    Logic::determineCardInfo(temp_cards, 2, type, detail, level);
+	    if(Logic::isGreater(type, detail, level, targetType, targetDetail, targetLevel))return true;
+	}
+	//炸弹
+	if(cardSize >= 4){
+	    outputSize = 4;
+	    Logic::determineCardInfo(temp_cards, 4, type, detail, level);
+	    if(Logic::isGreater(type, detail, level, targetType, targetDetail, targetLevel))return true;
+	}
+	return false;
+}
+
+//判断是否前者大于后者
+Logic::isGreater(type1, detail1, level1, type2, detail2, level2){
+	if(type1 == TYPE_BOOM)return true;
+	if(type2 == TYPE_BOOM)return false;
+	if(type1 == type2 && detail1 == detail2 && level1 > level2)return true;
+	if(!(type2 == TYPE_QUAD && detail2 == 1000)){
+	    if(type1 == TYPE_QUAD && detail1 == 1000)return true;
+	}
+	return false;
 }
