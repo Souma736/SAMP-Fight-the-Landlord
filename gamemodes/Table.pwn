@@ -28,7 +28,6 @@ enum tableinfo{
 	tStarted,
 	Float:tAngle,
 	tGuard[3], // 托管
-	tGuardTimer[3], // 托管求解的计时器
 	tTimer,
 	tBasicGold, //基本分
 	tTimes, //倍数
@@ -48,7 +47,7 @@ enum tableinfo{
 	tLastCardSize,
 	tLastType, //记录上一次出牌的牌型
 	tLastTypeDetail, //上一次出牌牌型的具体分型 如 3带1 3带2
-	tLastTypeLevel, //记录上一次出牌牌型对应的等级(高等级压低等级)
+	tLastLevel, //记录上一次出牌牌型对应的等级(高等级压低等级)
 
 	
 	//Cards 值说明
@@ -110,6 +109,9 @@ forward Table::onPlayerShiftCard(playerid, table, seat, card_id);
 forward Table::showTimeLeftToOthers(table);
 forward Table::initCards(table);
 forward Table::updateAllPlayerCardTxd(table);
+forward Table::onPlayerPlayCards(table, seat, const card_ids[], const cards[], card_size);
+forward Table::onPlayerPlayCardsByArray(table, seat, const outputArray[], outputSize);
+forward Table::stopGame(table, winnerSeat);
 
 public Table::loadObjects(){
 	CreateObject(11690, -3.70, 1517.29, 11.70,   0.00, 0.00, 30.00);
@@ -261,7 +263,7 @@ public Table::updateSeatLabel(table, seat, color, name[]){
     } else {
         format(string, sizeof string, "%d号座\n((%s))", seat+1, name);
     }
- 	Update3DTextLabelText(Table[table][tLabels][seat], -1, string);
+ 	Update3DTextLabelText(Table[table][tLabels][seat], color, string);
 }
 
 public Table::getSeatPosAndAngle(table, seat, Float:pos[], &Float:angle){
@@ -402,8 +404,8 @@ public Table::gameHandler(table){
 				if(player != -1 && !Robot::isRobot(player)){
 				    Player::showButton(player, Table[table][tTimeCount]/10, "NO", "CALL");
 				} else {
-				// 如果是离线玩家或机器在选 则 3s 后自动不随机叫
-				    if(Table[table][tTimeCount] == TIME_CALL_LORD - 30){
+				// 如果是离线玩家或机器在选 则 1 后自动随机叫
+				    if(Table[table][tTimeCount] <= TIME_CALL_LORD - 10){
 	                    Table[table][tRespond] = 1;
 	                    Table[table][tLordRefreshed] = random(2);//TODO 修改
 	                    if(Table[table][tLordRefreshed] == 1){
@@ -451,12 +453,13 @@ public Table::gameHandler(table){
 							}
 							Table[table][tLastType] = 0;
 							Table[table][tLastTypeDetail] = 0;
-							Table[table][tLastTypeLevel] = 0;
+							Table[table][tLastLevel] = 0;
 							Table[table][tCalled] = 0;
 							Table[table][tFirstHand] = 1;
 							Table[table][tRespond] = 0;
 							// 开始出牌
 							Table[table][tCurrentPlayer] = Table[table][tLord];
+							Table[table][tLordCallCoolTime] = 0;
 							Table[table][tTimeCount] = TIME_PLAY;
 							Table[table][tStatus] = STATUS_PLAY;
 				        }
@@ -502,37 +505,70 @@ public Table::gameHandler(table){
 					// 如果是离线玩家或机器，在托管状态
 					new seat = Table[table][tCurrentPlayer];
 					if(Table[table][tFirstHand] == 0){
-					    //如果是接牌侠,5秒钟寻找解
-					    if(Table[table][tTimeCount] == TIME_PLAY - 50){
-					    
-					    } else {
+					    //如果是接牌侠
+					    if(Table[table][tTimeCount] <= TIME_PLAY - 40){
+							//时间到了，不再寻找解
+							Table[table][tRespond] = RESPONSE_NO;
+					    }
+						if(Table[table][tTimeCount] < TIME_PLAY - 10 && Table[table][tTimeCount] > TIME_PLAY - 40){
+						    //看看自己要不要出牌
+						    new attack = 0;
+							if(Table[table][tLord] == seat){
+							    //如果自己是地主，怼，
+								attack = 1;
+							} else {
+							     //如果自己是农民，牌是地主出的，怼
+							    if((Table[table][tCalled] == 0 && Table::getPrevSeatID(seat) == Table[table][tLord]) ||
+			        			(Table[table][tCalled] == 1 && Table::getNextSeatID(seat) == Table[table][tLord])){
+		            				attack = 1;
+					        	}
+							}
+							if(attack == 1){
+							    //3秒钟寻找解
+						        for(new i = 0; i < 100; i++){
+							        new outputArray[MAX_PLAYER_CARDS];
+							        new outputSize = 0;
+							        //
+								    if(Logic::getSolution(TablePlayerCards[table][seat], Table::getCards(TablePlayerCards[table][seat]), Table[table][tLastCardSize],
+									Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel], 0, outputArray, outputSize)){
+									    Table::onPlayerPlayCardsByArray(table, seat, outputArray, outputSize);
+										break;
+									}
+							    }
+							} else {
+							    // 不出牌
+							    Table[table][tRespond] = RESPONSE_NO;
+							}
+						    
+					    }
+					} else {
+					    if(Table[table][tTimeCount] <= TIME_PLAY - 10 && Table[table][tTimeCount] > TIME_PLAY - 40){
 					        for(new i = 0; i < 100; i++){
 						        new outputArray[MAX_PLAYER_CARDS];
 						        new outputSize = 0;
-						        //
-							    if(Logic::getSolution(TablePlayerCards[table][seat], Table::getCards(TablePlayerCards[table][seat]), Table[table][tLastCardSize],
-								Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel], 0, outputArray, outputSize){
-
-								    Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, endid);
+							    if(Logic::getFirstHandSolution(TablePlayerCards[table][seat], Table::getCards(TablePlayerCards[table][seat]), outputArray, outputSize)){
+								    Table::onPlayerPlayCardsByArray(table, seat, outputArray, outputSize);
 									break;
 								}
 						    }
 					    }
-					} else {
-					    //如果是自己随意出
-					    new endid = 0;
-					    new temp_card_ids[4], temp_cards[4];
-					    for(new i = 0; i < 3; i++){
-					        if(TablePlayerCards[table][seat][i] != TablePlayerCards[table][seat][i+1]){
-					            endid = i;
-					            break;
-							}
+						if(Table[table][tTimeCount] <= TIME_PLAY - 40){
+					        //如果是自己随意出，实在想不出
+						    new endid = 0;
+						    new temp_card_ids[4], temp_cards[4];
+						    for(new i = 1; i < 4; i++){
+						        if(TablePlayerCards[table][seat][i] != TablePlayerCards[table][seat][0]+i){
+						            endid = i;
+						            break;
+								}
+						    }
+						    for(new i = 0; i < endid; i++){
+						        temp_card_ids[i] = i;
+						        temp_cards[i] = TablePlayerCards[table][seat][i];
+						    }
+	                        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, endid);
 					    }
-					    for(new i = 0; i < endid; i++){
-					        temp_card_ids[i] = i;
-					        temp_cards[i] = TablePlayerCards[table][seat][i];
-					    }
-                        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, endid);
+					    
 					}
 				    
 				}
@@ -541,11 +577,76 @@ public Table::gameHandler(table){
 				
 				// 时间到了 自动回应
 				if(Table[table][tTimeCount] == 0){
-	                Table[table][tRespond] = 1;
+	                if(Table[table][tFirstHand] == 1){
+	                    new array[2];
+	                    array[0] = TablePlayerCards[table][Table[table][tCurrentPlayer]][0];
+	                    Table::onPlayerPlayCards(table, Table[table][tCurrentPlayer], {0}, array, 1);
+	                } else {
+	                    Table[table][tRespond] = RESPONSE_NO;
+	                }
 				}
 			} else {
-			    // 当事件得到回应
-			    
+			    if(Table[table][tLordCallCoolTime] == 0){
+			        Table[table][tLordCallCoolTime] = 20;
+			        // 当事件得到回应
+				    if(Table[table][tRespond] == RESPONSE_NO){
+				        // 要不起
+				        Table[table][tCalled]++;
+				        if(Table[table][tCalled] >= 2){
+				            Table[table][tFirstHand] = 1;
+				            // 清空打出去的牌
+							Table[table][tLastCardSize] = 0;
+				        }
+				    } else if(Table[table][tRespond] == RESPONSE_YES){
+				        //压
+				        Table[table][tFirstHand] = 0;
+				        Table[table][tCalled] = 0;
+				    }
+				    // 更新所有玩家的牌UI
+				    for(new i = 0; i < 3; i++){
+				        new player = Table[table][tSeatPlayerIds][i];
+				        if(player != -1 && !Robot::isRobot(player)){
+				            //更新UI，隐藏玩家button
+				            Player::hideButton(player);
+							Player::hideTime(player);
+				        }
+				    }
+				    Table::updateAllPlayerCardTxd(table);
+			    } else {
+			        Table[table][tLordCallCoolTime]--;
+			        if(Table[table][tLordCallCoolTime] == 19){
+			            for(new i = 0; i < 3; i++){
+							new player = Table[table][tSeatPlayerIds][i];
+							if(player != -1 && !Robot::isRobot(player)){
+							    Player::hideButton(player);
+							    Player::hideTime(player);
+							    if(Table[table][tCurrentPlayer] == Table::getPrevSeatID(i)){
+							    	Player::showCallResult(player, SEAT_PREV, (Table[table][tRespond] == RESPONSE_YES));
+								} else if(Table[table][tCurrentPlayer] == Table::getNextSeatID(i)){
+							        Player::showCallResult(player, SEAT_NEXT, (Table[table][tRespond] == RESPONSE_YES));
+							    } else {
+							        Player::showCallResult(player, SEAT_SELF, (Table[table][tRespond] == RESPONSE_YES));
+							    }
+							}
+						}
+			        } else if(Table[table][tLordCallCoolTime] == 0){
+			            for(new i = 0; i < 3; i++){
+				        	new player = Table[table][tSeatPlayerIds][i];
+					   		if(player != -1 && !Robot::isRobot(player)){
+					            //更新UI，隐藏玩家button
+					            Player::hideButton(player);
+								Player::hideTime(player);
+					        }
+					    }
+					    if(Table[table][tRespond] == RESPONSE_WIN){
+					        Table::stopGame(table, Table[table][tCurrentPlayer]);
+					    } else {
+         					Table[table][tTimeCount] = TIME_PLAY;
+					    	Table[table][tCurrentPlayer] = Table::getNextSeatID(Table[table][tCurrentPlayer]);
+					    	Table[table][tRespond] = 0;
+					    }
+			        }
+			    }
 			}
 	 	}
  	}
@@ -554,12 +655,27 @@ public Table::gameHandler(table){
 public Table::sort(cards[], size, order){
 	for(new i = 0; i < size-1; i++){
         for(new j = 0; j < size-1-i; j++) {
-            if ( (order == ORDER_NORMAL && cards[j] > cards[j+1]) || (order == ORDER_DESC && cards[j] < cards[j+1]) ) {
+            if (cards[j] < cards[j+1]) {
                 new temp = cards[j];
                 cards[j] = cards[j+1];
                 cards[j+1] = temp;
             } 
         }
+	}
+	if(order == ORDER_NORMAL){
+	    new end = 0;
+	    for(new i = 0; i < size; i++){
+	        if(cards[i] == 0){
+	            end = i;
+	            break;
+			}
+	    }
+	    if(end == 0)end = size;
+        for(new i = 0; i < end/2; i++){
+	        new temp = cards[i];
+	        cards[i] = cards[end-i-1];
+	        cards[end-i-1] = temp;
+		}
 	}
 }
 
@@ -595,34 +711,41 @@ public Table::onPlayerClick(table, seat, which){
 	    // 回应 Handler
      	Table[table][tRespond] = 1;
 	} else if(Table[table][tStatus] == STATUS_PLAY){
-		//玩家在出牌阶段
-		new temp_card_ids[MAX_PLAYER_CARDS];
-		new temp_cards[MAX_PLAYER_CARDS];
-		new temp_card_size = 0;
-		for(new i = 0; i < MAX_PLAYER_CARDS; i++){
-		    if(TablePlayerCardsSelected[table][seat][i] == 1){
-		        //如果该牌被选中则，跳出来
-		        temp_card_ids[temp_card_size] = i;
-		        temp_cards[temp_card_size] = TablePlayerCards[table][seat][i];
-		    }
-		}
-		if(temp_card_size > 0){
-		    new type, detail, level;
-			Logic::determineCardInfo(temp_cards, temp_card_size, type, detail, level);
-			if(Table[table][tFirstHand] == 1){
-			    //如果是自己第一手出牌
-			    if(type != TYPE_WRONG){
-			        //该牌可以出
-			        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, temp_card_size);
-			    } else {
-			        ShowPlayerDialog(playerid, DIALOG_NO_RESPONSE, DIALOG_STYLE_MSGBOX, "错误”, "该出牌方式错误", "关闭", "");
+	    if(which == CLICK_YES){
+			//玩家在出牌阶段
+			new temp_card_ids[MAX_PLAYER_CARDS];
+			new temp_cards[MAX_PLAYER_CARDS];
+			new temp_card_size = 0;
+			for(new i = 0; i < MAX_PLAYER_CARDS; i++){
+			    if(TablePlayerCardsSelected[table][seat][i] == 1){
+			        //如果该牌被选中则，跳出来
+			        temp_card_ids[temp_card_size] = i;
+			        temp_cards[temp_card_size] = TablePlayerCards[table][seat][i];
+	                temp_card_size++;
 			    }
-			} else {
-			    //如果是压牌
-			    if(Logic::isGreater(type, detail, level, Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastTypeLevel])){
-			        //该牌可以出
-			        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, temp_card_size);
-			    }
+			}
+			if(temp_card_size > 0){
+			    new type, detail, level;
+				Logic::determineCardInfo(temp_cards, temp_card_size, type, detail, level);
+				if(Table[table][tFirstHand] == 1){
+				    //如果是自己第一手出牌
+				    if(type != TYPE_WRONG){
+				        //该牌可以出
+				        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, temp_card_size);
+				    } else {
+				        ShowPlayerDialog(Table[table][tSeatPlayerIds][seat], DIALOG_NO_RESPONSE, DIALOG_STYLE_MSGBOX, "错误", "该出牌方式错误", "关闭", "");
+				    }
+				} else {
+				    //如果是压牌
+				    if(Logic::isGreater(type, detail, level, Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel])){
+				        //该牌可以出
+				        Table::onPlayerPlayCards(table, seat, temp_card_ids, temp_cards, temp_card_size);
+				    }
+				}
+			}
+		} else {
+			if(Table[table][tFirstHand] == 0){
+			    Table[table][tRespond] = RESPONSE_NO;
 			}
 		}
 	}
@@ -640,7 +763,7 @@ public Table::onPlayerShiftCard(playerid, table, seat, card_id){
     }
 	
     Player::updateCardTxd(playerid, TablePlayerCards[table][seat], TablePlayerCardsSelected[table][seat],
-    Table::getCards(TablePlayerCards[table][seat]), Table[table][tLastCards], Table[table][tLastCardSize],
+    Table[table][tLastCards], Table[table][tLastCardSize], Table::getCards(TablePlayerCards[table][seat]),
     Table::getCards(TablePlayerCards[table][Table::getPrevSeatID(seat)]),
 	Table::getCards(TablePlayerCards[table][Table::getNextSeatID(seat)]));
 	return ;
@@ -684,7 +807,6 @@ public Table::initCards(table){
 	new temp_cards[MAX_CARDS];
 	for(new i = 0; i < MAX_CARDS; i++){
 		temp_cards[i] = i+1;
-		Table[table][tLastCards][i] = 0;
 	}
 	Table[table][tLastCardSize] = 0;
 	// -- 随机抽取此牌到桌牌中
@@ -706,9 +828,8 @@ public Table::updateAllPlayerCardTxd(table){
 	for(new i = 0; i < 3; i++){
 		new player = Table[table][tSeatPlayerIds][i];
 		if(player != -1 && !Robot::isRobot(player)){
-		    Player::updateCardTxd(player, TablePlayerCards[table][i],
-			TablePlayerCardsSelected[table][i], Table::getCards(TablePlayerCards[table][i]),
-			Table[table][tLastCards], Table[table][tLastCardSize],
+		    Player::updateCardTxd(player, TablePlayerCards[table][i], TablePlayerCardsSelected[table][i], 
+			Table[table][tLastCards], Table[table][tLastCardSize],Table::getCards(TablePlayerCards[table][i]),
 			Table::getCards(TablePlayerCards[table][Table::getPrevSeatID(i)]),
 			Table::getCards(TablePlayerCards[table][Table::getNextSeatID(i)]));
 		}
@@ -720,20 +841,100 @@ public Table::onPlayerPlayCards(table, seat, const card_ids[], const cards[], ca
 	    // 先删除玩家手中的牌，并添加到 打出去的牌中
 	    for(new i = 0; i < card_size; i++){
 	        TablePlayerCards[table][seat][card_ids[i]] = 0;
-	        TablePlayerCardsSelected[table][seat][card_ids[i]] = 0;
-	        Table[tLastCards][i] = cards[i];
+	        Table[table][tLastCards][i] = cards[i];
 	    }
+	    for(new i = 0; i < MAX_PLAYER_CARDS; i++){
+	        TablePlayerCardsSelected[table][seat][i] = 0;
+	    }
+	    Table::sort(TablePlayerCards[table][seat], MAX_PLAYER_CARDS, ORDER_NORMAL);
+	    Table::sort(Table[table][tLastCards], card_size, ORDER_NORMAL);
+	    Logic::determineCardInfo(cards, card_size, Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel]);
 	    Table[table][tLastCardSize] = card_size;
-	    // 更新所有玩家的牌UI
-	    for(new i = 0; i < 3; i++){
-	        new player = Table[table][tSeatPlayerIds][i];
-	        if(player != -1 && !Robot::isRobot(player)){
-	            //更新UI，隐藏玩家button
-	            Player::hideButton(player);
-				Player::hideTime(player);'
+	    Table[table][tRespond] = RESPONSE_YES;
+	    // test
+	    new string[128], name[64];
+	    format(string, sizeof string, "(");
+	    for(new i = 0; i < card_size; i++){
+     		Table::getCardRealName(cards[i], name);
+	        format(string, sizeof string, "%s%s,", string, name);
+	    }
+		strcat(string, ")");
+	   // SendClientMessageToAll(-1, string);
+	    Logic::getTypeName(Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel], name);
+	    //SendClientMessageToAll(-1, name);
+	    if(Table::getCards(TablePlayerCards[table][seat]) == 0){
+			Table[table][tRespond] = RESPONSE_WIN;
+	    }
+	}
+}
+
+public Table::stopGame(table, winnerSeat){
+	// 停止handler
+	KillTimer(Table[table][tTimer]);
+	// 计算积分金币
+	new base_amount = Table[table][tBasicGold] * Table[table][tTimes];
+	for(new i = 0; i < 3; i++){
+	    //算好是加钱还是扣钱
+	    new amount;
+	    if(Table[table][tLord] == winnerSeat){
+	        //如果是地主赢了
+	        if(i != Table[table][tLord]){
+				amount = -base_amount;
+	        } else {
+	            amount = base_amount * 2;
+	        }
+	    } else {
+	        //如果是农民赢了
+	        if(i != Table[table][tLord]){
+				amount = base_amount;
+	        } else {
+	            amount = -base_amount*2;
 	        }
 	    }
-	    Table::updateAllPlayerCardTxd(table);
-	    Table[table][tRespond] = 1;
+	    new player = Table[table][tSeatPlayerIds][i];
+	    if(player == -1){
+	        //如果该玩家溜了，也要加/扣钱
+	        Player::giveGoldByOffline(TablePlayerNames[table][i], amount);
+	    } else if(Robot::isRobot(player)){
+	        //如果是NPC
+	        Robot::giveGold(player, amount);
+		} else {
+		    //如果在线玩家 给金币，恢复视觉并解冻，并取消TXD显示
+	        Player::giveGold(player, amount);
+	        TogglePlayerControllable(player, true);
+			SetCameraBehindPlayer(player);
+			new result_msg[128], result_detail_msg[128];
+			Player[player][pTableID] = -1;
+			CancelSelectTextDraw(player);
+			if(amount > 0){
+			    format(result_msg, sizeof result_msg, "胜利");
+			    format(result_detail_msg, sizeof result_detail_msg, "恭喜你赢得了%d个金币", amount);
+			} else {
+			    format(result_msg, sizeof result_msg, "失败");
+			    format(result_detail_msg, sizeof result_detail_msg, "很遗憾，你失去了%d个金币", amount);
+			}
+			ShowPlayerDialog(player, DIALOG_TABLE_RESULT, DIALOG_STYLE_MSGBOX, result_msg, result_detail_msg, "关闭", "");
+	    }
 	}
+	// 初始化牌桌
+	Table[table][tStarted] = 0;
+	Table::updateTableLabel(table);
+	for(new i = 0; i < 3; i++){
+		new player = Table[table][tSeatPlayerIds][i];
+		if(!Robot::isRobot(player)){
+		    // 如果不是NPC则赶下牌桌
+			Table::updateSeatLabel(table, i, -1, " ");
+	    	Table[table][tSeatPlayerIds][i] = -1;
+	    	format(TablePlayerNames[table][i], 1, " ");
+	    	Table[table][tGuard][i] = 0;
+	    }
+	}
+}
+
+public Table::onPlayerPlayCardsByArray(table, seat, const outputArray[], outputSize){
+	new cards[MAX_PLAYER_CARDS];
+	for(new i = 0; i < outputSize; i++){
+	    cards[i] = TablePlayerCards[table][seat][outputArray[i]];
+	}
+	Table::onPlayerPlayCards(table, seat, outputArray, cards, outputSize);
 }

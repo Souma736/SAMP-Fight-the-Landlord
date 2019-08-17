@@ -63,14 +63,14 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
 	if(lapsize == 1 && element_times[1] == 1){
 	    type = TYPE_SOLO;
 	    type_detail = 0;
-	    level = values[0];
+	    level = element_values[1][0];
 	}
 	
 	// 对子
 	if(lapsize == 1 && poker_times[0] == 2){
         type = TYPE_PAIR;
 		type_detail = 1;
-		level = values[0];
+		level = element_values[2][0];
 	}
 	
 	//3连对及以上
@@ -187,10 +187,8 @@ Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDeta
 	}
 	for(new i = 0; i < cardSize; i++){
 	    if(i == cardSize - 1){
-			// 最后一次抽牌
 			outputArray[i] = temp_array[0];
 		} else {
- 			//正常抽牌
 			new random_id = random(cardSize-i);
 			outputArray[i] = temp_array[random_id];
 			if(random_id != cardSize-i-1)
@@ -220,6 +218,33 @@ Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDeta
 	return false;
 }
 
+Logic::getFirstHandSolution(const cards[], cardSize, outputArray[], &outputSize){
+	new temp_array[MAX_PLAYER_CARDS];
+	for(new i = 0; i < cardSize; i++){
+	    temp_array[i] = i;
+	}
+	for(new i = 0; i < cardSize; i++){
+	    if(i == cardSize - 1){
+			outputArray[i] = temp_array[0];
+		} else {
+			new random_id = random(cardSize-i);
+			outputArray[i] = temp_array[random_id];
+			if(random_id != cardSize-i-1)
+				temp_array[random_id] = temp_array[cardSize-i-1];
+		}
+	}
+	new temp_cards[MAX_PLAYER_CARDS];
+	new temp = (random(1000) == 99) ? 0 : 1;
+	outputSize = random(cardSize-temp)+1+temp;
+	for(new i = 0; i < outputSize; i++){
+	    temp_cards[i] = cards[outputArray[i]];
+	}
+	new type, detail, level;
+	Logic::determineCardInfo(temp_cards, outputSize, type, detail, level);
+	if(type != TYPE_WRONG)return true;
+	return false;
+}
+
 //判断是否前者大于后者
 Logic::isGreater(type1, detail1, level1, type2, detail2, level2){
 	if(type1 == TYPE_BOOM)return true;
@@ -229,4 +254,49 @@ Logic::isGreater(type1, detail1, level1, type2, detail2, level2){
 	    if(type1 == TYPE_QUAD && detail1 == 1000)return true;
 	}
 	return false;
+}
+
+Logic::getTypeName(type, detail, level, msg[]){
+	level = level + 3;
+    if(type == TYPE_SOLO){
+		format(msg,128, "检测为：\t单张，值：%d", level);
+	}
+	if(type == TYPE_PAIR){
+		if(detail == 1){
+		    format(msg,128, "检测为：\t1对，值: %d", level);
+		} else {
+		    format(msg,128, "检测为：\t%d连对，值: %d", detail, level);
+		}
+	}
+	if(type == TYPE_TRIPLE){
+	    new times = detail / 1000;
+	    new left = detail - times*1000;
+		if(times == 1){
+		    if(left == 1){
+                format(msg,128, "检测为：\t三带一，值: %d", level);
+		    } else if(left == 0){
+		        format(msg,128, "检测为：\t三张，值: %d", level);
+		    } else if(left == 10){
+		        format(msg,128, "检测为：\t三带一对，值: %d", level);
+		    }
+		} else {
+		    format(msg,128, "检测为：\t飞机(%d连)，值: %d", detail/ 1000, level);
+		}
+	}
+	if(type == TYPE_QUAD){
+		if(detail == 1000){
+		    format(msg,128, "检测为：\t炸弹，值: %d", level);
+		} else if(detail < 2000) {
+		    format(msg,128, "检测为：\t四带二，值: %d", level);
+		} else {
+		    format(msg,128, "检测为：\t四张(%d连)，值: %d", detail/1000, level);
+		}
+	}
+	if(type == TYPE_STRAIGHT){
+	    format(msg,128, "检测为：\t顺子，值: %d~%d", level-detail+1, level);
+	}
+	if(type == TYPE_BOOM){
+	    format(msg,128, "检测为：\t王炸");
+	}
+
 }

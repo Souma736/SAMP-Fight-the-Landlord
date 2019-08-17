@@ -15,6 +15,9 @@ forward Robot::isRobot(playerid);
 forward Robot::getName(playerid, name[]);
 forward Robot::getGold(playerid);
 forward Robot::getScore(playerid);
+forward Robot::giveGold(playerid, amount);
+forward Robot::getRobotID(playerid);
+forward Robot::getSeat(npcid);
 
 public Robot::create(name[], skin, table, seat, gold, score){
 	if(Table::onNpcJoin(robotid, name, table, seat)){
@@ -37,18 +40,31 @@ public Robot::isRobot(playerid){
 }
 
 public Robot::getName(playerid, name[]){
-		new npcid = playerid - MAX_PLAYERS;
-		format(name, MAX_PLAYER_NAME, Robot[npcid][rName]);
+	new npcid = playerid - MAX_PLAYERS;
+	format(name, MAX_PLAYER_NAME, Robot[npcid][rName]);
 }
 
 public Robot::getGold(playerid){
-		new npcid = playerid - MAX_PLAYERS;
-		return Robot[npcid][rGold];
+	new npcid = playerid - MAX_PLAYERS;
+	return Robot[npcid][rGold];
 }
 
 public Robot::getScore(playerid){
-		new npcid = playerid - MAX_PLAYERS;
-		return Robot[npcid][rScore];
+	new npcid = playerid - MAX_PLAYERS;
+	return Robot[npcid][rScore];
+}
+
+public Robot::getRobotID(playerid){
+	return playerid - MAX_PLAYERS;
+}
+
+public Robot::giveGold(playerid, amount){
+    new npcid = playerid - MAX_PLAYERS;
+	Robot[npcid][rGold] += amount;
+}
+
+public Robot::getSeat(npcid){
+	return Robot[npcid][rSeat];
 }
 
 

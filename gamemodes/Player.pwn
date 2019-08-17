@@ -75,6 +75,8 @@ public Player::OnDialogResponse(playerid, dialogid, response, listitem, inputtex
 		} else {
 			Kick(playerid);
 		}
+	} else if(dialogid == DIALOG_TABLE_RESULT){
+		Player::hideAllTxd(playerid);
 	}
 
 }
@@ -144,7 +146,7 @@ public Player::clickTXD(playerid, PlayerText:playertextid){
 	            // 如果不是空牌
 	            Table::onPlayerShiftCard(playerid, Player[playerid][pTableID], Player[playerid][pSeatID], i-Player[playerid][pCardTxdStartID]);
 	        } else {
-	            SendClientMessage(playerid, -1, "空牌");
+	            //SendClientMessage(playerid, -1, "空牌");
 	        }
 	        break;
 	    }
@@ -162,16 +164,20 @@ forward Player::saveData(playerid);
 forward Player::newbieGift(playerid);
 forward Player::loadTxd(playerid);
 forward Player::showBasicTableTxd(playerid, prev_id, next_id, basic_gold, times);
-forward Player::Player::updateCardTxd(playerid, const cards[], const card_s[], const p_cards[], a, b, c, d);
+forward Player::updateCardTxd(playerid, const cards[], const card_s[], const p_cards[], a, b, c, d);
 forward Player::updateHiddenCardTxd(playerid, const hidden_cards[]);
 forward Player::showButton(playerid, time, button_no[], button_yes[]);
 forward Player::showTime(playerid, pos, time);
 forward Player::hideButton(playerid);
 forward Player::hideTime(playerid);
+forward Player::hideAllTxd(playerid);
 forward Player::showCallResult(playerid, pos, result);
 forward Player::textdrawShow(playerid, PlayerText:text);
 forward Player::textdrawHide(playerid, PlayerText:text);
 forward Player::showLordName(playerid, const name[]);
+forward Player::giveGoldByOffline(const name[], amount);
+forward Player::giveGold(playerid, amount);
+
 
 public Player::init(playerid){
 	format(Player[playerid][pName], 1, " ");
@@ -205,6 +211,28 @@ public Player::onSpawn(playerid){
 	Player[playerid][pLogged] = 1;
 	SetSpawnInfo( playerid, 0, 0, -8.1000, 1510.0000, 12.7758, 269.15, 0, 0, 0, 0, 0, 0 );
 	SpawnPlayer(playerid);
+	//检测上次加入的牌局是否打完了
+	/*for(new i = 0; i < tableid; i++){
+	    if(Table[i][tStarted] == 1){
+	        for(new u = 0; u < 3; u++){
+	            if(strlen(TablePlayerNames[i][u]) > 1 && !strcmp(TablePlayerNames[i][u], Player[playerid][pName])){
+	                Player[playerid][pTableID] = i;
+	                Player[playerid][pSeatID] = u;
+	                Table[i][tPlayerIds][u] = playerid;
+	                SetPlayerPos(playerid, Table[i][tSeatPos][u][0], Table[i][tSeatPos][u][1], Table[i][tSeatPos][u][2]);
+	                Table[table][tGuard][u] = 0;
+	                new prev = Table::getPrevSeatID(i);
+		            new next = Table::getNextSeatID(i);
+		            Player::showBasicTableTxd(Table[i][tSeatPlayerIds][i], Table[i][tSeatPlayerIds][prev], Table[i][tSeatPlayerIds][next], Table[i][tBasicGold], Table[i][tTimes]);
+					new Float:pos[3];
+    				GetPlayerPos(Table[table][tSeatPlayerIds][i], pos[0], pos[1], pos[2]);
+					SetPlayerCameraPos(Table[table][tSeatPlayerIds][i], pos[0], pos[1], pos[2] + 5.0);
+					SetPlayerCameraLookAt(Table[table][tSeatPlayerIds][i], pos[0], pos[1], pos[2] + 6.0, CAMERA_MOVE);
+	                break;
+	            }
+	        }
+	    }
+	}*/
 }
 
 public Player::isLogged(playerid){
@@ -230,6 +258,12 @@ public Player::kick(playerid, message[]){
 	format(string, sizeof string, "您被请出了服务器，原因：%s", message);
 	SendClientMessage(playerid, 0xFF0000FF, string);
 	SetTimerEx("Player_delayKick", 100, false, "d", playerid);
+}
+
+public Player::hideAllTxd(playerid){
+    for(new i = 0; i < MAX_PLAYER_TEXT_VIEW; i++){
+	    Player::textdrawHide(playerid, pTextDraw[i]);
+	}
 }
 
 public Player::showBasicTableTxd(playerid, prev_id, next_id, basic_gold, times){
@@ -312,7 +346,6 @@ public Player::showBasicTableTxd(playerid, prev_id, next_id, basic_gold, times){
 // card_s 为 card_selected
 public Player::updateCardTxd(playerid, const cards[], const card_s[], const p_cards[], a, b, c, d){
 	// 先更新我的牌
-	
  	new played_card_size = a, card_size = b, prev_cards = c, next_cards = d;
 	new text_draw_start_id = 10 - card_size/2 + 1;
 	Player[playerid][pCardTxdStartID] = text_draw_start_id;
@@ -324,7 +357,7 @@ public Player::updateCardTxd(playerid, const cards[], const card_s[], const p_ca
 	    } else {
 	        new font_name[32];
 	        Table::getCardFontNameByValue(cards[i-text_draw_start_id], font_name);
-	        if(card_selected[i-text_draw_start_id] == 1){
+	        if(card_s[i-text_draw_start_id] == 1){
 	            PlayerTextDrawSetString(playerid, pTextDraw[i+80], font_name);
 	            PlayerTextDrawSetString(playerid, pTextDraw[i], "none");
 	        } else {
@@ -357,6 +390,17 @@ public Player::updateCardTxd(playerid, const cards[], const card_s[], const p_ca
 	}
 	format(cards_left, sizeof cards_left, "(%d)", next_cards);
 	PlayerTextDrawSetString(playerid, pTextDraw[112], cards_left);
+	// 再更新打出去的牌
+    text_draw_start_id = 10 - played_card_size/2 + 61;
+    for(new i = 61; i < 81; i++){
+	    if(i < text_draw_start_id || i >= text_draw_start_id + played_card_size){
+	        PlayerTextDrawSetString(playerid, pTextDraw[i], "none");
+	    } else {
+	        new font_name[32];
+	        Table::getCardFontNameByValue(p_cards[i-text_draw_start_id], font_name);
+         	PlayerTextDrawSetString(playerid, pTextDraw[i], font_name);
+	    }
+	}
 }
 
 public Player::updateHiddenCardTxd(playerid, const hidden_cards[]){
@@ -790,11 +834,30 @@ public Player::textdrawShow(playerid, PlayerText:text){
 public Player::textdrawHide(playerid, PlayerText:text){
     for(new i = 0; i < MAX_PLAYER_TEXT_VIEW; i++){
 	    if(pTextDraw[i] == text){
-	        if(Player[playerid][pIsTxdShowing][i] == 1){
-	            PlayerTextDrawHide(playerid, text);
-	            Player[playerid][pIsTxdShowing][i] = 0;
-	        }
+         	PlayerTextDrawHide(playerid, text);
+         	Player[playerid][pIsTxdShowing][i] = 0;
 	        break;
 	    }
+	}
+}
+
+public Player::giveGold(playerid, amount){
+    Player[playerid][pGold] += amount;
+    new msg[128];
+    if(amount > 0){
+        format(msg, sizeof msg, "{3366CC}[提示]{FFFFFF}你获得了%d个金币", amount);
+    } else if(amount < 0){
+        format(msg, sizeof msg, "{3366CC}[提示]{FFFFFF}你失去了%d个金币", -amount);
+    }
+    SendClientMessage(playerid, -1, msg);
+}
+
+public Player::giveGoldByOffline(const name[], amount){
+    new File[64];
+	format(File, sizeof File, "Accounts/%s.ini", name);
+	if(fexist(File)){
+	    new gold = dini_Int(File, "gold");
+	    gold += amount;
+	    dini_IntSet(File, "gold", gold);
 	}
 }

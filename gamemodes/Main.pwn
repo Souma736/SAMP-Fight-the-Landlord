@@ -6,6 +6,7 @@
 // -- 对话框定义
 #define DIALOG_REG 0
 #define DIALOG_LOGIN 1
+#define DIALOG_TABLE_RESULT 2
 // -- 类定义
 #define Player:: Player_
 #define Robot:: Robot_
@@ -21,6 +22,16 @@
 
 #define ORDER_NORMAL 0
 #define ORDER_DESC 1
+
+#define RESPONSE_NO 1
+#define RESPONSE_YES 2
+#define RESPONSE_WIN 3
+
+
+
+#define DIALOG_NO_RESPONSE 4399
+
+#define MAX_CARD_VALUES 15
 
 
 
@@ -44,9 +55,10 @@ public OnGameModeInit()
 	ShowNameTags(1);
 	Table::OnGameModeInit();
 	//for(new i = 0; i < 13200000; i++){
+	/*
 	for(new i = 0; i < 20; i++){
 	    test_timer = SetTimer("Test2", 1, 1);
-	}
+	}*/
 	return 1;
 }
 
@@ -54,13 +66,13 @@ main(){}
 
 forward Test2();
 public Test2(){
-	new cards[20],cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[20];
+	new cards[20],cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[20], outputSize;
 	// 10张牌
 	cardSize = 10;
 	
-	cards[0] = 5;
-	cards[1] = 6;
-	cards[2] = 7;
+	cards[0] = 9;
+	cards[1] = 10;
+	cards[2] = 11;
 	cards[3] = 14;
 	cards[4] = 15;
 	cards[5] = 18;
@@ -74,9 +86,10 @@ public Test2(){
 	targetDetail = 1001;
 	targetLevel = 1;
 	seed = 0;
-    if(Logic::getSolution(cards, cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray)){
+
+    if(Logic::getSolution(cards, cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray, outputSize)){
         new msg[128];
-        for(new i = 0; i < requiredSize; i++){
+        for(new i = 0; i < outputSize; i++){
             format(msg, sizeof msg, "%s %d, ", msg, outputArray[i]);
         }
         printf("%s", msg);
@@ -202,9 +215,8 @@ public OnPlayerCommandText(playerid, cmdtext[])
 
     if(strcmp(cmd, "/help") == 0)
  	{
-	 	SendClientMessage(playerid, -1, "{3366CC}[指令]{FFFFFF}“/join”[加入游戏] “/spec”[暗中观察] “/specoff”[结束观察] “/kill”[自杀]");
-	 	SendClientMessage(playerid, -1, "{3366CC}[指令]{FFFFFF}“/pm”[跟某人私聊] “/tpm”[开/关 私聊] “/changeskin”[更换皮肤]");
-	 	SendClientMessage(playerid, -1, "{3366CC}[指令]{FFFFFF}“/stats”[个人资料] “/rank”[积分排行] “/tips”[基本攻略] “/o”[世界聊天]((消耗1积分))");
+	 	SendClientMessage(playerid, -1, "{3366CC}[指令]{FFFFFF}“/join”[加入/退出游戏] “/fix”[出现鼠标指针]");
+	 	SendClientMessage(playerid, -1, "{3366CC}[指令]{FFFFFF}“/status”[个人资料] ");
 	 	return 1;
 	}
 
@@ -237,8 +249,25 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    return 1;
 	}
 	
-
-
+	if(!strcmp(cmd, "/join")){
+	    Player::OnPlayerKeyStateChange(playerid, KEY_CTRL_BACK, 0);
+	    return 1;
+	}
+	
+	if(!strcmp(cmd, "/fix")){
+	    if(Player[playerid][pTableID] != -1 && Table[Player[playerid][pTableID]][tStarted] == 1){
+	        if(Table[Player[playerid][pTableID]][tStatus] == STATUS_PLAY){
+				CancelSelectTextDraw(playerid);
+				SelectTextDraw(playerid, -1);
+	        }
+	    }
+	    return 1;
+	}
+	
+	if(!strcmp(cmd, "/status")){
+	    SendClientMessage(playerid, -1, "{3366CC}[提示]{FFFFFF}按下“TAB”，双击即可查看信息");
+	    return 1;
+	}
 	SendClientMessage(playerid, COLOR_GREY, "输入“/help”获得帮助");
 	return 1;
 }
@@ -275,9 +304,6 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 {
-	new msg[128];
-	format(msg, sizeof msg, "你点击了 %d", playertextid);
-	SendClientMessage(playerid, -1, msg);
 	Player::clickTXD(playerid, PlayerText:playertextid);
     return 0;
 }
@@ -291,6 +317,12 @@ public OnPlayerClickTextDraw(playerid, Text:clickedid)
 
 public OnPlayerClickPlayer(playerid, clickedplayerid, source)
 {
+	if(Player[clickedplayerid][pLogged] == 0)return 1;
+    new msg[128];
+    format(msg, sizeof msg,"[%s的信息]", Player[clickedplayerid][pName]);
+    SendClientMessage(playerid, -1, msg);
+    format(msg, sizeof msg, "积分: %d   金币: %d", Player[clickedplayerid][pScore], Player[clickedplayerid][pGold]);
+    SendClientMessage(playerid, -1, msg);
 	return 1;
 }
 
