@@ -1,0 +1,3 @@
+在Table.pwn 中第117行的 Table::loadObjects
+添加桌子的模型即可创建牌桌(即标签什么的自动生成，你只需要CreateObject就行了) 
+(注意：DynamicObject可能不行)

@@ -153,7 +153,6 @@ Logic::determineCardInfo(const cards[], size, &type, &type_detail, &level){
     	type_detail = 0;
     	level = 0;
 	}
-//	if(type == TYPE_WRONG)printf("´íÎó");
 	//TODO
 	//if(element_times[4] != 0 && element_times[3] > 0){//¿¼ÂÇÕ¨µ¯²ð¿ª³É·É»ú  Èç 33334445
 }
@@ -180,7 +179,7 @@ Logic::orderByLaps(const values[], size, poker_values[], poker_times[], &lapsize
 }
 
 
-Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDetail, targetLevel, seed, outputArray[], &outputSize){
+Logic::getSolution(const cards[], cardSize, requiredSize, targetType, targetDetail, targetLevel, outputArray[], &outputSize){
 	new temp_array[MAX_PLAYER_CARDS];
 	for(new i = 0; i < cardSize; i++){
 	    temp_array[i] = i;

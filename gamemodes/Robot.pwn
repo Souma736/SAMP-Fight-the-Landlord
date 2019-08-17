@@ -20,7 +20,7 @@ forward Robot::getRobotID(playerid);
 forward Robot::getSeat(npcid);
 
 public Robot::create(name[], skin, table, seat, gold, score){
-	if(Table::onNpcJoin(robotid, name, table, seat)){
+	if(Table::onRobotJoin(robotid, name, table, seat)){
 	    Robot[robotid][rGold] = gold;
 	    Robot[robotid][rScore] = score;
 	    Robot[robotid][rTable] = table;

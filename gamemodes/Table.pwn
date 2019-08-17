@@ -94,7 +94,8 @@ forward Table::onStartCheck(table);
 forward Table::startGame(table);
 forward Table::isStarted(table);
 forward Table::onPlayerLeave(playerid, table, seat);
-forward Table::onNpcJoin(robot, name[], table, seat);
+forward Table::onRobotJoin(robot, name[], table, seat);
+forward Table::onRobotLeave(table, seat);
 forward Table::updateSeatLabel(table, seat, color, name[]);
 forward Table::updateTableLabel(table);
 forward Table::getSeatPosAndAngle(table, seat, Float:pos[], &Float:angle);
@@ -114,9 +115,26 @@ forward Table::onPlayerPlayCardsByArray(table, seat, const outputArray[], output
 forward Table::stopGame(table, winnerSeat);
 
 public Table::loadObjects(){
-	CreateObject(11690, -3.70, 1517.29, 11.70,   0.00, 0.00, 30.00);
-	CreateObject(11690, -3.12, 1506.11, 11.70,   0.00, 0.00, 45.00);
-	CreateObject(11690, -0.40, 1512.39, 11.70,   0.00, 0.00, -60.00);
+	CreateObject(11690, -9.42, 1528.09, 11.70,   0.00, 0.00, 0.00);
+	CreateObject(11690, -13.84, 1521.20, 11.70,   0.00, 0.00, 15.66);
+	CreateObject(11690, -10.21, 1519.41, 11.70,   0.00, 0.00, -89.10);
+	CreateObject(11690, -5.02, 1527.99, 11.70,   0.00, 0.00, 0.00);
+	CreateObject(11690, -13.45, 1525.28, 11.70,   0.00, 0.00, -32.64);
+	CreateObject(11690, 11.50, 1511.25, 11.70,   0.00, 0.00, -45.60);
+	CreateObject(11690, 7.25, 1510.52, 11.70,   0.00, 0.00, 0.00);
+	CreateObject(11690, 14.65, 1516.46, 11.70,   0.00, 0.00, -4.92);
+	CreateObject(11690, 12.36, 1526.06, 11.70,   0.00, 0.00, 37.50);
+	CreateObject(11690, 14.47, 1520.71, 11.70,   0.00, 0.00, 6.06);
+	CreateObject(11690, 7.48, 1528.30, 11.70,   0.00, 0.00, 0.00);
+	CreateObject(11690, -6.61, 1519.15, 11.70,   0.00, 0.00, -110.64);
+	CreateObject(11690, -3.99, 1516.53, 11.70,   0.00, 0.00, -162.30);
+	CreateObject(11690, -4.95, 1513.02, 11.70,   0.00, 0.00, -214.14);
+	CreateObject(11690, -8.07, 1511.89, 11.70,   0.00, 0.00, -264.00);
+	CreateObject(11690, -11.41, 1511.85, 11.70,   0.00, 0.00, -271.98);
+	CreateObject(11690, 3.43, 1512.43, 11.70,   0.00, 0.00, 45.60);
+	CreateObject(11690, 2.24, 1516.28, 11.70,   0.00, 0.00, 4.92);
+	CreateObject(11690, 2.67, 1521.08, 11.70,   0.00, 0.00, -6.06);
+	CreateObject(11690, 3.95, 1525.51, 11.70,   0.00, 0.00, -37.50);
 	for(new i= 0; i < MAX_OBJECTS; i++){
 	    if(GetObjectModel(i) == 11690){
 			//距离为1.1
@@ -144,7 +162,7 @@ public Table::loadObjects(){
 
 public Table::create(Float:org_pos[3], Float:actor_pos[3], Float:seatpos[3][3], Float:angle){
 
-	CreateActor(26, actor_pos[0], actor_pos[1], actor_pos[2], angle+90.0);
+	CreateActor(25, actor_pos[0], actor_pos[1], actor_pos[2], angle+90.0);
 	for(new i = 0; i < 3; i++){
 	    for(new u = 0; u < 3; u++){
 	        TableSeatPos[tableid][i][u] = seatpos[i][u];
@@ -166,7 +184,7 @@ public Table::create(Float:org_pos[3], Float:actor_pos[3], Float:seatpos[3][3], 
 public Table::getTableAndSeatByPlayer(playerid, &table, &seat){
 	for(new i = 0; i < tableid; i++){
 		for(new u = 0; u < 3; u++){
-		    if(Table[i][tStarted] == 0 && IsPlayerInRangeOfPoint(playerid, 1.0, TableSeatPos[i][u][0], TableSeatPos[i][u][1], TableSeatPos[i][u][2])){
+		    if(Table[i][tStarted] == 0 && Table[i][tSeatPlayerIds][u] == -1 && IsPlayerInRangeOfPoint(playerid, 1.0, TableSeatPos[i][u][0], TableSeatPos[i][u][1], TableSeatPos[i][u][2])){
 		        table = i;
 		        seat = u;
 		        return;
@@ -197,18 +215,19 @@ public Table::onStartCheck(table){
 	        counts++;
 	}
 	if(counts == 3){
-	    Table::startGame(table);
+	    Table[table][tStarted] = 1;
+	    Table::updateTableLabel(table);
+	    SetTimerEx("Table_startGame", 1000, false, "d", table);
 	}
 }
 
 public Table::startGame(table){
-	Table[table][tStarted] = 1;
+	
 	//TODO 以后设置可变金额
 	Table[table][tBasicGold] = 10;
 	Table[table][tTimes] = 1;
 	Table[table][tStatus] = STATUS_JUST_START;
 	Table[table][tTimeCount] = 10;// 1秒钟后开局
-	Table::updateTableLabel(table);
 	for(new i = 0; i < 3; i++){
 	    // 如果这个人离线了, 就托管
 	    if(Table[table][tSeatPlayerIds][i] == -1){
@@ -243,7 +262,7 @@ public Table::onPlayerLeave(playerid, table, seat){
 	}
 }
 
-public Table::onNpcJoin(robot, name[], table, seat){
+public Table::onRobotJoin(robot, name[], table, seat){
 	if(table >= 0 && table < tableid){
 	    if(Table[table][tSeatPlayerIds][seat] == -1){
 	        Table[table][tSeatPlayerIds][seat] = MAX_PLAYERS + robot;
@@ -254,6 +273,13 @@ public Table::onNpcJoin(robot, name[], table, seat){
 	    }
 	}
 	return false;
+}
+
+public Table::onRobotLeave(table, seat){
+	Table[table][tSeatPlayerIds][seat] = -1;
+	Table[table][tGuard][seat] = 1;
+	format(TablePlayerNames[table][seat], 1, " ");
+	Table::updateSeatLabel(table, seat, -1, " ");
 }
 
 public Table::updateSeatLabel(table, seat, color, name[]){
@@ -513,24 +539,27 @@ public Table::gameHandler(table){
 						if(Table[table][tTimeCount] < TIME_PLAY - 10 && Table[table][tTimeCount] > TIME_PLAY - 40){
 						    //看看自己要不要出牌
 						    new attack = 0;
-							if(Table[table][tLord] == seat){
-							    //如果自己是地主，怼，
-								attack = 1;
-							} else {
-							     //如果自己是农民，牌是地主出的，怼
-							    if((Table[table][tCalled] == 0 && Table::getPrevSeatID(seat) == Table[table][tLord]) ||
-			        			(Table[table][tCalled] == 1 && Table::getNextSeatID(seat) == Table[table][tLord])){
-		            				attack = 1;
-					        	}
-							}
+						    if(Table[table][tLastType] != TYPE_SOLO && Table[table][tLastType] != TYPE_PAIR){
+						        if(Table[table][tLord] == seat){
+								    //如果自己是地主，怼，
+									attack = 1;
+								} else {
+								     //如果自己是农民，牌是地主出的，怼
+								    if((Table[table][tCalled] == 0 && Table::getPrevSeatID(seat) == Table[table][tLord]) ||
+				        			(Table[table][tCalled] == 1 && Table::getNextSeatID(seat) == Table[table][tLord])){
+			            				attack = 1;
+						        	}
+								}
+						    } else {
+						        attack = 1;
+						    }
 							if(attack == 1){
 							    //3秒钟寻找解
 						        for(new i = 0; i < 100; i++){
 							        new outputArray[MAX_PLAYER_CARDS];
 							        new outputSize = 0;
-							        //
 								    if(Logic::getSolution(TablePlayerCards[table][seat], Table::getCards(TablePlayerCards[table][seat]), Table[table][tLastCardSize],
-									Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel], 0, outputArray, outputSize)){
+									Table[table][tLastType], Table[table][tLastTypeDetail], Table[table][tLastLevel], outputArray, outputSize)){
 									    Table::onPlayerPlayCardsByArray(table, seat, outputArray, outputSize);
 										break;
 									}
